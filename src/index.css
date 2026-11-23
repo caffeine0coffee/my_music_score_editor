@@ -1,0 +1,15 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+  }
+}
+
+/* Score SVG styling */
+.score-svg-container svg {
+  display: block;
+  user-select: none;
+  -webkit-user-select: none;
+}

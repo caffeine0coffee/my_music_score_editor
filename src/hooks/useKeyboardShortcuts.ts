@@ -28,6 +28,14 @@ export function useKeyboardShortcuts(): void {
       const store = useScoreStore.getState();
       const mod = e.ctrlKey || e.metaKey;
 
+      // Alt + 1..4 -> Voice switch
+      if (e.altKey && !mod && ['1', '2', '3', '4'].includes(e.key)) {
+        e.preventDefault();
+        const voiceIndex = Number(e.key) - 1;
+        store.setActiveVoice(voiceIndex);
+        return;
+      }
+
       // Undo / Redo
       if (mod && e.key.toLowerCase() === 'z') {
         e.preventDefault();
@@ -44,12 +52,27 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
+      // Copy / Paste
+      if (mod && e.key.toLowerCase() === 'c') {
+        e.preventDefault();
+        store.copySelection();
+        return;
+      }
+      if (mod && e.key.toLowerCase() === 'v') {
+        e.preventDefault();
+        store.pasteToActiveVoice();
+        return;
+      }
+
       if (mod || e.altKey) return;
 
       // Duration keys 1-5
       if (KEY_TO_DURATION[e.key]) {
         e.preventDefault();
         store.setSelectedDuration(KEY_TO_DURATION[e.key]);
+        if (store.interactionMode === 'select') {
+          store.setInteractionMode('input');
+        }
         return;
       }
 
@@ -74,28 +97,47 @@ export function useKeyboardShortcuts(): void {
         return;
       }
 
-      // Pitch shift for selected note
-      if (e.key === 'ArrowUp' && store.selectedNote) {
+      // Toggle Input / Select mode
+      if (e.key.toLowerCase() === 'v' || e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        store.setInteractionMode(store.interactionMode === 'input' ? 'select' : 'input');
+        return;
+      }
+
+      // Tie toggle
+      if (e.key.toLowerCase() === 'l') {
+        e.preventDefault();
+        store.toggleTieOnSelected();
+        return;
+      }
+
+      const hasSelection =
+        store.selectedNote !== null ||
+        store.selectedNotes.length > 0 ||
+        store.selectedMeasureRange !== null;
+
+      // Pitch shift for selected note(s) or measure(s)
+      if (e.key === 'ArrowUp' && hasSelection) {
         e.preventDefault();
         store.shiftSelectedNote(1);
         return;
       }
-      if (e.key === 'ArrowDown' && store.selectedNote) {
+      if (e.key === 'ArrowDown' && hasSelection) {
         e.preventDefault();
         store.shiftSelectedNote(-1);
         return;
       }
 
-      // Delete selected note
-      if ((e.key === 'Delete' || e.key === 'Backspace') && store.selectedNote) {
+      // Delete selected note(s) or measure(s)
+      if ((e.key === 'Delete' || e.key === 'Backspace') && hasSelection) {
         e.preventDefault();
         store.deleteSelectedNote();
         return;
       }
 
-      // Clear selection
+      // Clear selection / return to input mode
       if (e.key === 'Escape') {
-        store.setSelectedNote(null);
+        store.clearSelection();
       }
     };
 

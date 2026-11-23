@@ -1,4 +1,4 @@
-import type { BaseDuration, TimeSignature } from '../types/score';
+import type { BaseDuration, DynamicMark, TimeSignature } from '../types/score';
 
 export const TICKS_PER_QUARTER = 480;
 
@@ -56,6 +56,16 @@ export const VOICE_COLORS = [
   '#c2410c', // 3rd: orange
   '#7e22ce', // 4th: purple
 ];
+
+export const VOICE_LABELS = ['1st', '2nd', '3rd', '4th'] as const;
+
+export const MAX_VOICES_PER_STAFF = 4;
+export const MAX_STAVES = 8;
+
+export const DYNAMIC_MARKS: DynamicMark[] = ['pp', 'p', 'mp', 'mf', 'f', 'ff'];
+
+export const MIN_ZOOM = 0.6;
+export const MAX_ZOOM = 2.0;
 
 export const DEFAULT_MEASURE_COUNT = 8;
 export const MAX_UNDO_HISTORY = 100;

@@ -74,4 +74,4 @@ npm run dev
    - `VITE_SUPABASE_PUBLISHABLE_KEY`: Supabase Publishable key (`sb_publishable_...`)
 4. デプロイ完了後、公開 URL（`https://<your-app>.pages.dev`）を Supabase の **Authentication → URL Configuration** に登録して完了です。
 
-> **SPA ルーティング**: Workers 用には `wrangler.jsonc` の `not_found_handling: "single-page-application"`、Pages 用には `public/_redirects` を配置済みのため、OAuth コールバックや直接 URL アクセス時も正常に動作します。
+> **SPA ルーティング**: Workers では `wrangler.jsonc` の `not_found_handling: "single-page-application"` により、Pages でも `404.html` を置かない構成により自動的に `index.html` へフォールバックされるため、OAuth コールバックや直接 URL アクセス時も正常に動作します。

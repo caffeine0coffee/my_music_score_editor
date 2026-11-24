@@ -11,9 +11,10 @@
    - `public.scores` テーブル（複合主キー `(user_id, id)`）
    - `updated_at` 自動更新トリガー
    - Row Level Security (RLS) ポリシー（本人の譜面のみ SELECT / INSERT / UPDATE / DELETE 可能）
-3. **Project Settings → API** から以下の 2 つの値を控えます。
-   - **Project URL** → `VITE_SUPABASE_URL`
-   - **anon public key** → `VITE_SUPABASE_ANON_KEY`
+3. 左メニューの **Project Settings** から以下の 2 つの値を控えます（画面上部の **Connect → App Frameworks** からもまとめて確認できます）。
+   - **Data API → Project URL** → `VITE_SUPABASE_URL`
+   - **API Keys → Publishable key** (`sb_publishable_...`) → `VITE_SUPABASE_PUBLISHABLE_KEY`
+     （※ Secret key はブラウザ側には絶対に設定しないでください）
 
 ---
 
@@ -38,7 +39,7 @@
 
 ```bash
 cp .env.example .env.local
-# VITE_SUPABASE_URL と VITE_SUPABASE_ANON_KEY を記入
+# VITE_SUPABASE_URL と VITE_SUPABASE_PUBLISHABLE_KEY を記入
 npm run dev
 ```
 
@@ -56,7 +57,7 @@ npm run dev
 3. **Environment variables**（Production / Preview）に以下を設定します。
    - `NODE_VERSION`: `20`（または `22`）
    - `VITE_SUPABASE_URL`: Supabase Project URL
-   - `VITE_SUPABASE_ANON_KEY`: Supabase anon public key
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: Supabase Publishable key (`sb_publishable_...`)
 4. デプロイ完了後、公開 URL（`https://<your-app>.pages.dev`）を Supabase の **Authentication → URL Configuration** に登録して完了です。
 
 > **SPA ルーティング**: `public/_redirects` に `/* /index.html 200` を配置済みのため、OAuth コールバックや直接 URL アクセス時も正常に動作します。

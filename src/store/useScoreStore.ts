@@ -32,8 +32,17 @@ import {
 } from '../core/measureOps';
 import { computeDurationSpec, getMeasureTicks } from '../core/rhythm';
 import { createInitialScore, createStaff, createVoice, generateId } from '../core/scoreFactory';
-import { localScoreRepository } from '../repository/LocalStorageScoreRepository';
+import {
+  getLastOpenedScoreId,
+  localScoreRepository,
+  setLastOpenedScoreId,
+} from '../repository/LocalStorageScoreRepository';
+import type { ScoreRepository } from '../repository/ScoreRepository';
+import { createNewScoreData } from '../repository/scoreClone';
 import { pianoPlayer, type PlayheadPosition } from '../audio/pianoPlayer';
+
+export type SaveStatus = 'idle' | 'saving' | 'saved' | 'error';
+export type StorageMode = 'local' | 'cloud';
 
 export interface SelectedNoteRef {
   staffIndex: number;
@@ -87,6 +96,13 @@ interface ScoreStoreState {
   // Playback state (transient, not in undo history)
   isPlaying: boolean;
   playhead: PlayheadPosition | null;
+
+  // Persistence & repository state (transient)
+  repository: ScoreRepository;
+  storageMode: StorageMode;
+  saveStatus: SaveStatus;
+  saveError: string | null;
+  lastSavedAt: string | null;
 
   // Navigation / mode actions
   setActiveStaff: (staffIndex: number) => void;
@@ -161,7 +177,11 @@ interface ScoreStoreState {
   undo: () => void;
   redo: () => void;
 
-  // Persistence
+  // Persistence & score management
+  setRepository: (repo: ScoreRepository, mode: StorageMode) => Promise<void>;
+  loadScore: (score: Score) => void;
+  createNewScore: () => Promise<Score>;
+  flushSave: () => Promise<void>;
   hydrate: () => Promise<void>;
 }
 
@@ -173,9 +193,9 @@ function pushHistory(past: Score[], current: Score): Score[] {
   return next;
 }
 
-function persistScore(score: Score): void {
-  void localScoreRepository.saveScore(score);
-}
+let persistTimer: ReturnType<typeof setTimeout> | null = null;
+let pendingScore: Score | null = null;
+let persistSeq = 0;
 
 function clampActiveIndices(
   score: Score,
@@ -189,6 +209,45 @@ function clampActiveIndices(
 }
 
 export const useScoreStore = create<ScoreStoreState>((set, get) => {
+  const executeSave = async (scoreToSave: Score): Promise<void> => {
+    const seq = ++persistSeq;
+    const { repository, storageMode } = get();
+    set({ saveStatus: 'saving', saveError: null });
+    try {
+      await repository.saveScore(scoreToSave);
+      setLastOpenedScoreId(scoreToSave.id, storageMode);
+      if (seq === persistSeq) {
+        set({
+          saveStatus: 'saved',
+          saveError: null,
+          lastSavedAt: new Date().toISOString(),
+        });
+      }
+    } catch (err) {
+      if (seq === persistSeq) {
+        const message = err instanceof Error ? err.message : '保存に失敗しました';
+        set({ saveStatus: 'error', saveError: message });
+      }
+    }
+  };
+
+  const persistScore = (score: Score): void => {
+    pendingScore = score;
+    if (persistTimer) {
+      clearTimeout(persistTimer);
+    }
+    const delay = get().storageMode === 'cloud' ? 800 : 150;
+    set({ saveStatus: 'saving', saveError: null });
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      const target = pendingScore;
+      pendingScore = null;
+      if (target) {
+        void executeSave(target);
+      }
+    }, delay);
+  };
+
   const commit = (
     updater: (draft: Score) => void,
     extraPatch?: Partial<
@@ -242,6 +301,12 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
 
     isPlaying: false,
     playhead: null,
+
+    repository: localScoreRepository,
+    storageMode: 'local',
+    saveStatus: 'idle',
+    saveError: null,
+    lastSavedAt: null,
 
     setActiveStaff: (staffIndex) => {
       const state = get();
@@ -787,8 +852,13 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
       if (state.isPlaying) {
         pianoPlayer.stop();
       }
+      const normalized: Score = {
+        ...nextScore,
+        id: state.score.id,
+        updatedAt: new Date().toISOString(),
+      };
       set({
-        score: nextScore,
+        score: normalized,
         past: pushHistory(state.past, state.score),
         future: [],
         activeStaffIndex: 0,
@@ -799,7 +869,7 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
         isPlaying: false,
         playhead: null,
       });
-      persistScore(nextScore);
+      persistScore(normalized);
     },
 
     placeNote: (measureIndex, startTick, pitch, forceChordMode, targetStaffIndex) => {
@@ -1107,8 +1177,12 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
     },
 
     resetScore: () => {
-      const fresh = createInitialScore();
       const state = get();
+      const fresh: Score = {
+        ...createInitialScore(),
+        id: state.score.id,
+        updatedAt: new Date().toISOString(),
+      };
       set({
         score: fresh,
         past: pushHistory(state.past, state.score),
@@ -1158,10 +1232,132 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
       persistScore(next);
     },
 
+    flushSave: async () => {
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      const target = pendingScore ?? (get().saveStatus === 'error' ? get().score : null);
+      pendingScore = null;
+      if (target) {
+        await executeSave(target);
+      }
+    },
+
+    setRepository: async (repo, mode) => {
+      await get().flushSave();
+      set({
+        repository: repo,
+        storageMode: mode,
+        saveStatus: 'idle',
+        saveError: null,
+      });
+      await get().hydrate();
+    },
+
+    loadScore: (nextScore) => {
+      const state = get();
+      if (state.isPlaying) {
+        pianoPlayer.stop();
+      }
+      if (persistTimer) {
+        clearTimeout(persistTimer);
+        persistTimer = null;
+      }
+      const prevPending = pendingScore;
+      pendingScore = null;
+      if (prevPending && prevPending.id !== nextScore.id) {
+        void state.repository.saveScore(prevPending);
+      }
+      setLastOpenedScoreId(nextScore.id, state.storageMode);
+      set({
+        score: nextScore,
+        past: [],
+        future: [],
+        activeStaffIndex: 0,
+        activeVoiceIndex: 0,
+        selectedNote: null,
+        selectedNotes: [],
+        selectedMeasureRange: null,
+        isPlaying: false,
+        playhead: null,
+        saveStatus: 'saved',
+        saveError: null,
+      });
+    },
+
+    createNewScore: async () => {
+      await get().flushSave();
+      const fresh = createNewScoreData();
+      const { repository, storageMode } = get();
+      await repository.saveScore(fresh);
+      setLastOpenedScoreId(fresh.id, storageMode);
+      get().loadScore(fresh);
+      return fresh;
+    },
+
     hydrate: async () => {
-      const saved = await localScoreRepository.getScore('local-default-score');
-      if (saved && saved.staves?.length > 0 && saved.measureMeta?.length > 0) {
-        set({ score: saved });
+      const { repository, storageMode } = get();
+      try {
+        const lastId = getLastOpenedScoreId(storageMode);
+        if (lastId) {
+          const saved = await repository.getScore(lastId);
+          if (saved && saved.staves?.length > 0 && saved.measureMeta?.length > 0) {
+            set({
+              score: saved,
+              past: [],
+              future: [],
+              activeStaffIndex: 0,
+              activeVoiceIndex: 0,
+              selectedNote: null,
+              selectedNotes: [],
+              selectedMeasureRange: null,
+              saveStatus: 'saved',
+              saveError: null,
+            });
+            return;
+          }
+        }
+
+        const list = await repository.listScores();
+        const latest = list.find((s) => s.staves?.length > 0 && s.measureMeta?.length > 0);
+        if (latest) {
+          setLastOpenedScoreId(latest.id, storageMode);
+          set({
+            score: latest,
+            past: [],
+            future: [],
+            activeStaffIndex: 0,
+            activeVoiceIndex: 0,
+            selectedNote: null,
+            selectedNotes: [],
+            selectedMeasureRange: null,
+            saveStatus: 'saved',
+            saveError: null,
+          });
+          return;
+        }
+
+        // No existing score in repository -> initialize one and save it
+        const initial =
+          storageMode === 'local' ? createInitialScore() : createNewScoreData();
+        await repository.saveScore(initial);
+        setLastOpenedScoreId(initial.id, storageMode);
+        set({
+          score: initial,
+          past: [],
+          future: [],
+          activeStaffIndex: 0,
+          activeVoiceIndex: 0,
+          selectedNote: null,
+          selectedNotes: [],
+          selectedMeasureRange: null,
+          saveStatus: 'saved',
+          saveError: null,
+        });
+      } catch (err) {
+        const message = err instanceof Error ? err.message : '譜面の読み込みに失敗しました';
+        set({ saveStatus: 'error', saveError: message });
       }
     },
   };

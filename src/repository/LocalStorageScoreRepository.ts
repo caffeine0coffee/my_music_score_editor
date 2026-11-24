@@ -2,6 +2,7 @@ import type { Score } from '../types/score';
 import type { ScoreRepository } from './ScoreRepository';
 
 const STORAGE_KEY = 'my_music_score_editor:scores_v1';
+const LAST_OPENED_KEY = 'my_music_score_editor:last_opened_id_v1';
 
 function readAll(): Record<string, Score> {
   try {
@@ -18,6 +19,22 @@ function writeAll(map: Record<string, Score>): void {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(map));
   } catch {
     // Ignore storage quota errors in restricted environments
+  }
+}
+
+export function getLastOpenedScoreId(scope: 'local' | 'cloud' = 'local'): string | null {
+  try {
+    return localStorage.getItem(`${LAST_OPENED_KEY}:${scope}`);
+  } catch {
+    return null;
+  }
+}
+
+export function setLastOpenedScoreId(id: string, scope: 'local' | 'cloud' = 'local'): void {
+  try {
+    localStorage.setItem(`${LAST_OPENED_KEY}:${scope}`, id);
+  } catch {
+    // Ignore storage errors
   }
 }
 

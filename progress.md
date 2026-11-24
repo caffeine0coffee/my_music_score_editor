@@ -25,10 +25,11 @@
 - [x] `@tonejs/midi` を使ったMIDIインポート（確認ダイアログ付き）＆MIDIエクスポート
 - [x] A4自動組版レンダラー＋`jsPDF + svg2pdf.js` によるベクターPDF出力、SVG/PNG出力（黒一色／カラー切替）
 
-### Milestone 4: Supabase認証・クラウド同期・Cloudflare Pagesデプロイ — ⬜ 未着手
-- [ ] Supabaseプロジェクト連携（Google OAuthログイン、PostgreSQLスキーマ・RLS設定）
-- [ ] マイ譜面一覧画面（新規作成・複製・削除・検索）と自動クラウド保存（ローカル／Tailscale実行時はLocalStorageへフォールバック可能にする）
-- [ ] Cloudflare Pages へのデプロイ設定と実機（PC・スマホ）での最終動作確認
+### Milestone 4: Supabase認証・クラウド同期・Cloudflare Pagesデプロイ — ✅ 実装完了（本番デプロイ設定待ち）
+- [x] Supabaseプロジェクト連携（Google OAuthログイン、PostgreSQLスキーマ・RLS設定 `supabase/schema.sql`、`SupabaseScoreRepository`）
+- [x] マイ譜面一覧画面（新規作成・複製・削除・検索・ローカル→クラウド取り込み）とデバウンス自動クラウド保存（ローカル／Tailscale実行時はLocalStorageへフォールバック）
+- [x] Cloudflare Pages へのデプロイ設定（`public/_redirects`, `.env.example`, `docs/deploy-guide.md`）
+- [ ] 実機（PC・スマホ）での本番デプロイ＆最終動作確認
 
 ---
 
@@ -42,3 +43,4 @@
 | 2026-11-23 | Milestone 2 実装完了（複数五線・複数声部の色分け＆半透明描画、小節/音符範囲選択・コピペ・別声部ワンタップ複製、タイ/スラー/強弱/反復/ヘッダー編集、モバイル下部ドック＆ピンチズーム、単体テスト26件） |
 | 2026-11-24 | Milestone 3 実装完了（Web Audio ピアノ風シンセ再生・プレイヘッド・声部ミュート/ソロ、`@tonejs/midi` によるMIDIインポート確認ダイアログ＆エクスポート、A4自動組版レンダラー＆jsPDF/svg2pdf.jsによるベクターPDF/SVG/PNG出力、単体テスト31件） |
 | 2026-11-24 | PDF/PNG/SVG出力の音楽記号欠落・日本語文字化け修正（VexFlow Canvas バックエンドによる 3x 高精細 A4 レンダリングへ移行、SVG出力への Bravura `@font-face` 埋め込み） |
+| 2026-11-24 | Milestone 4 実装完了（Supabase Google OAuth 認証＆`SupabaseScoreRepository`＆RLSスキーマ、マイ譜面一覧画面の新規作成/複製/削除/検索/ローカル譜面取り込み、デバウンス自動保存＆保存ステータス表示、Cloudflare Pages デプロイ設定＆ガイド整備、単体テスト38件） |

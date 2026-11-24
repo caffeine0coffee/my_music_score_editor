@@ -10,8 +10,9 @@ const KEY_TO_DURATION: Record<string, BaseDuration> = {
   '5': '16',
 };
 
-export function useKeyboardShortcuts(): void {
+export function useKeyboardShortcuts(enabled = true): void {
   useEffect(() => {
+    if (!enabled) return;
     const onKeyDown = (e: KeyboardEvent) => {
       // Ignore shortcuts when typing inside inputs/selects/textareas
       const target = e.target as HTMLElement | null;
@@ -150,5 +151,5 @@ export function useKeyboardShortcuts(): void {
 
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, []);
+  }, [enabled]);
 }

@@ -1,6 +1,10 @@
 import React, { useRef, useState } from 'react';
 import {
+  AlertCircle,
+  Check,
   Download,
+  FolderOpen,
+  Loader2,
   Minus,
   Music,
   Play,
@@ -16,14 +20,23 @@ import { KEY_SIGNATURES, TIME_SIGNATURES } from '../core/constants';
 import { inspectMidiFile, type MidiInspection } from '../audio/midiCodec';
 import { MidiImportModal } from './MidiImportModal';
 import { ExportModal } from './ExportModal';
+import { AuthMenu } from './AuthMenu';
 import type { ClefType } from '../types/score';
 
-export const TopToolbar: React.FC = () => {
+interface TopToolbarProps {
+  onOpenLibrary: () => void;
+}
+
+export const TopToolbar: React.FC<TopToolbarProps> = ({ onOpenLibrary }) => {
   const score = useScoreStore((s) => s.score);
   const activeStaffIndex = useScoreStore((s) => s.activeStaffIndex);
   const canUndo = useScoreStore((s) => s.past.length > 0);
   const canRedo = useScoreStore((s) => s.future.length > 0);
   const isPlaying = useScoreStore((s) => s.isPlaying);
+  const storageMode = useScoreStore((s) => s.storageMode);
+  const saveStatus = useScoreStore((s) => s.saveStatus);
+  const saveError = useScoreStore((s) => s.saveError);
+  const flushSave = useScoreStore((s) => s.flushSave);
 
   const setClef = useScoreStore((s) => s.setClef);
   const setKeySignature = useScoreStore((s) => s.setKeySignature);
@@ -72,17 +85,47 @@ export const TopToolbar: React.FC = () => {
     <>
       <header className="sticky top-0 z-20 bg-white/95 backdrop-blur border-b border-slate-200">
         <div className="max-w-5xl mx-auto px-3 sm:px-4 py-2.5 flex flex-wrap items-center justify-between gap-2.5">
-          {/* Brand + Play */}
-          <div className="flex items-center gap-2.5">
+          {/* Brand + Library + Play */}
+          <div className="flex items-center gap-2">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-blue-900 text-white flex items-center justify-center shadow-xs">
                 <Music className="w-4 h-4" />
               </div>
               <div className="hidden sm:block">
                 <h1 className="text-sm font-bold text-slate-900 leading-tight">Score Editor</h1>
-                <p className="text-[11px] text-slate-400 leading-tight">ローカル自動保存</p>
+                {saveStatus === 'saving' ? (
+                  <p className="text-[11px] text-blue-600 leading-tight inline-flex items-center gap-1">
+                    <Loader2 className="w-2.5 h-2.5 animate-spin" />
+                    {storageMode === 'cloud' ? 'クラウド保存中...' : '保存中...'}
+                  </p>
+                ) : saveStatus === 'error' ? (
+                  <button
+                    type="button"
+                    onClick={() => void flushSave()}
+                    className="text-[11px] text-rose-600 hover:underline leading-tight inline-flex items-center gap-1"
+                    title={saveError ?? 'クリックして再保存'}
+                  >
+                    <AlertCircle className="w-2.5 h-2.5" />
+                    保存エラー（再試行）
+                  </button>
+                ) : (
+                  <p className="text-[11px] text-slate-400 leading-tight inline-flex items-center gap-1">
+                    {saveStatus === 'saved' && <Check className="w-2.5 h-2.5 text-emerald-500" />}
+                    {storageMode === 'cloud' ? 'クラウド自動保存' : 'ローカル自動保存'}
+                  </p>
+                )}
               </div>
             </div>
+
+            <button
+              type="button"
+              onClick={onOpenLibrary}
+              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 text-xs font-medium transition-colors"
+              title="マイ譜面一覧を開く"
+            >
+              <FolderOpen className="w-3.5 h-3.5 text-blue-800" />
+              <span className="hidden md:inline">マイ譜面</span>
+            </button>
 
             {/* Playback button */}
             <button
@@ -282,6 +325,9 @@ export const TopToolbar: React.FC = () => {
             >
               <RotateCcw className="w-4 h-4" />
             </button>
+
+            <div className="h-4 w-px bg-slate-200 mx-0.5 hidden sm:block" />
+            <AuthMenu />
           </div>
         </div>
       </header>

@@ -47,9 +47,23 @@ npm run dev
 
 ---
 
-## 4. Cloudflare Pages へのデプロイ
+## 4. Cloudflare Workers（Static Assets）または Pages へのデプロイ
 
-1. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages → Create → Pages → Connect to Git** で本リポジトリを接続します。
+### A. Cloudflare Workers（Static Assets）でデプロイする場合（推奨）
+リポジトリルートに [`wrangler.jsonc`](../wrangler.jsonc) を配置済みです。
+
+1. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages → Create → Import a repository** で本リポジトリを接続します。
+2. 設定画面で以下のように入力します：
+   - **Project name**: `my-music-score-editor`
+   - **Build command**: `npm run build`
+   - **Deploy command**: `npx wrangler deploy`
+3. **Advanced settings → Variables and secrets（Build variables）** に以下を設定します：
+   - `VITE_SUPABASE_URL`: Supabase Project URL
+   - `VITE_SUPABASE_PUBLISHABLE_KEY`: Supabase Publishable key (`sb_publishable_...`)
+4. **Deploy** をクリックします。デプロイ完了後、公開 URL（`https://my-music-score-editor.<subdomain>.workers.dev`）を Supabase の **Authentication → URL Configuration**（Site URL / Redirect URLs）に登録して完了です。
+
+### B. Cloudflare Pages でデプロイする場合
+1. [Cloudflare Dashboard](https://dash.cloudflare.com/) → **Workers & Pages → Create → Pages → Import an existing Git repository** で本リポジトリを接続します。
 2. ビルド設定を以下のように入力します。
    - **Framework preset**: `Vite`（または None）
    - **Build command**: `npm run build`
@@ -60,4 +74,4 @@ npm run dev
    - `VITE_SUPABASE_PUBLISHABLE_KEY`: Supabase Publishable key (`sb_publishable_...`)
 4. デプロイ完了後、公開 URL（`https://<your-app>.pages.dev`）を Supabase の **Authentication → URL Configuration** に登録して完了です。
 
-> **SPA ルーティング**: `public/_redirects` に `/* /index.html 200` を配置済みのため、OAuth コールバックや直接 URL アクセス時も正常に動作します。
+> **SPA ルーティング**: Workers 用には `wrangler.jsonc` の `not_found_handling: "single-page-application"`、Pages 用には `public/_redirects` を配置済みのため、OAuth コールバックや直接 URL アクセス時も正常に動作します。

@@ -1,10 +1,10 @@
 import { jsPDF } from 'jspdf';
-import { svg2pdf } from 'svg2pdf.js';
 import type { Score } from '../types/score';
 import {
   A4_SVG_HEIGHT,
   A4_SVG_WIDTH,
   renderScorePagesForPrint,
+  renderScorePagesToCanvases,
   type ExportColorMode,
 } from './printRenderer';
 
@@ -52,33 +52,32 @@ function combinePagesToSingleSvg(pages: SVGSVGElement[]): SVGSVGElement {
 }
 
 /**
- * Export score as a multi-page A4 vector PDF using jsPDF + svg2pdf.js.
+ * Export score as a multi-page A4 high-DPI (300dpi-class) PDF.
+ * Uses VexFlow's Canvas backend so all SMuFL music glyphs (Bravura) and Japanese/CJK
+ * header text render identically to the browser without missing glyphs or mojibake.
  */
 export async function exportScoreToPdf(score: Score, colorMode: ExportColorMode): Promise<void> {
-  const pages = renderScorePagesForPrint(score, { colorMode });
+  const canvases = await renderScorePagesToCanvases(score, { colorMode, scale: 3 });
   const pdf = new jsPDF({
     orientation: 'portrait',
     unit: 'mm',
     format: 'a4',
+    compress: true,
   });
 
-  for (let i = 0; i < pages.length; i++) {
+  for (let i = 0; i < canvases.length; i++) {
     if (i > 0) {
       pdf.addPage('a4', 'portrait');
     }
-    await svg2pdf(pages[i], pdf, {
-      x: 0,
-      y: 0,
-      width: 210,
-      height: 297,
-    });
+    const dataUrl = canvases[i].toDataURL('image/png');
+    pdf.addImage(dataUrl, 'PNG', 0, 0, 210, 297, undefined, 'FAST');
   }
 
   pdf.save(`${sanitizeFileName(score.title)}.pdf`);
 }
 
 /**
- * Export score as a vector SVG file.
+ * Export score as a vector SVG file (with embedded Bravura @font-face).
  */
 export function exportScoreToSvg(score: Score, colorMode: ExportColorMode): void {
   const pages = renderScorePagesForPrint(score, { colorMode });
@@ -90,47 +89,34 @@ export function exportScoreToSvg(score: Score, colorMode: ExportColorMode): void
 }
 
 /**
- * Export score as a high-resolution (2x) PNG image.
+ * Export score as a high-resolution (2x) PNG image rendered natively via VexFlow Canvas.
  */
 export async function exportScoreToPng(score: Score, colorMode: ExportColorMode): Promise<void> {
-  const pages = renderScorePagesForPrint(score, { colorMode });
-  const combined = combinePagesToSingleSvg(pages);
-  const totalHeight = A4_SVG_HEIGHT * pages.length;
+  const scale = 2;
+  const canvases = await renderScorePagesToCanvases(score, { colorMode, scale });
 
-  const serializer = new XMLSerializer();
-  const svgString = serializer.serializeToString(combined);
-  const svgBlob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(svgBlob);
-
-  try {
-    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-      const image = new Image();
-      image.onload = () => resolve(image);
-      image.onerror = (err) => reject(err);
-      image.src = url;
-    });
-
-    const scale = 2;
-    const canvas = document.createElement('canvas');
-    canvas.width = A4_SVG_WIDTH * scale;
-    canvas.height = totalHeight * scale;
-    const ctx = canvas.getContext('2d');
+  let finalCanvas: HTMLCanvasElement;
+  if (canvases.length === 1) {
+    finalCanvas = canvases[0];
+  } else {
+    finalCanvas = document.createElement('canvas');
+    finalCanvas.width = A4_SVG_WIDTH * scale;
+    finalCanvas.height = A4_SVG_HEIGHT * scale * canvases.length;
+    const ctx = finalCanvas.getContext('2d');
     if (!ctx) throw new Error('Canvas 2D context is unavailable');
-
     ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.scale(scale, scale);
-    ctx.drawImage(img, 0, 0, A4_SVG_WIDTH, totalHeight);
-
-    const pngBlob = await new Promise<Blob>((resolve, reject) => {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error('Failed to encode PNG'));
-      }, 'image/png');
+    ctx.fillRect(0, 0, finalCanvas.width, finalCanvas.height);
+    canvases.forEach((c, idx) => {
+      ctx.drawImage(c, 0, idx * A4_SVG_HEIGHT * scale);
     });
-
-    triggerDownload(pngBlob, `${sanitizeFileName(score.title)}.png`);
-  } finally {
-    URL.revokeObjectURL(url);
   }
+
+  const pngBlob = await new Promise<Blob>((resolve, reject) => {
+    finalCanvas.toBlob((blob) => {
+      if (blob) resolve(blob);
+      else reject(new Error('Failed to encode PNG'));
+    }, 'image/png');
+  });
+
+  triggerDownload(pngBlob, `${sanitizeFileName(score.title)}.png`);
 }

@@ -164,9 +164,9 @@ export const ExportModal: React.FC<ExportModalProps> = ({ onClose }) => {
                   )}
                 </div>
                 <div className="text-left">
-                  <div className="font-bold text-sm">PDF でダウンロード（A4 ベクター）</div>
+                  <div className="font-bold text-sm">PDF でダウンロード（A4 高精細）</div>
                   <div className="text-[11px] text-slate-600">
-                    拡大しても劣化しない印刷品質のベクターPDF
+                    音楽記号・日本語タイトル対応の印刷品質 A4 PDF
                   </div>
                 </div>
               </div>

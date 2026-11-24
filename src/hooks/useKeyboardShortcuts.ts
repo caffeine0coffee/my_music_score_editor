@@ -66,6 +66,13 @@ export function useKeyboardShortcuts(): void {
 
       if (mod || e.altKey) return;
 
+      // Space: Play / Stop preview
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        store.togglePlayback();
+        return;
+      }
+
       // Duration keys 1-5
       if (KEY_TO_DURATION[e.key]) {
         e.preventDefault();

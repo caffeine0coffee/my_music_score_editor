@@ -1,4 +1,4 @@
-import type { ClefType, Pitch, PitchStep } from '../types/score';
+import type { Accidental, ClefType, DynamicMark, Pitch, PitchStep } from '../types/score';
 
 export const PITCH_STEPS: readonly PitchStep[] = ['C', 'D', 'E', 'F', 'G', 'A', 'B'];
 
@@ -104,3 +104,136 @@ export function formatPitchLabel(pitch: Pitch): string {
 export function getRestKeyForClef(clef: ClefType): string {
   return clef === 'treble' ? 'b/4' : 'd/3';
 }
+
+const STEP_SEMITONES: Record<PitchStep, number> = {
+  C: 0,
+  D: 2,
+  E: 4,
+  F: 5,
+  G: 7,
+  A: 9,
+  B: 11,
+};
+
+const SHARP_ORDER: PitchStep[] = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+const FLAT_ORDER: PitchStep[] = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+
+const KEY_SIGNATURE_COUNT: Record<string, number> = {
+  C: 0,
+  G: 1,
+  D: 2,
+  A: 3,
+  E: 4,
+  B: 5,
+  'F#': 6,
+  F: -1,
+  Bb: -2,
+  Eb: -3,
+  Ab: -4,
+  Db: -5,
+  Gb: -6,
+};
+
+/**
+ * Return the semitone offset (+1 for sharp, -1 for flat, 0 for natural) implied by a key signature for a given step.
+ */
+export function getKeySignatureOffset(keySignature: string, step: PitchStep): number {
+  const count = KEY_SIGNATURE_COUNT[keySignature] ?? 0;
+  if (count > 0) {
+    return SHARP_ORDER.slice(0, count).includes(step) ? 1 : 0;
+  }
+  if (count < 0) {
+    return FLAT_ORDER.slice(0, -count).includes(step) ? -1 : 0;
+  }
+  return 0;
+}
+
+export function isFlatKeySignature(keySignature: string): boolean {
+  return (KEY_SIGNATURE_COUNT[keySignature] ?? 0) < 0;
+}
+
+/**
+ * Convert a Pitch to a MIDI note number (C4 = 60), respecting key signature and optional
+ * measure-local accidental state (keyed by `${step}${octave}`).
+ */
+export function pitchToMidi(
+  pitch: Pitch,
+  keySignature = 'C',
+  measureAccidentals?: Map<string, number>,
+): number {
+  const key = `${pitch.step}${pitch.octave}`;
+  let offset: number;
+  if (pitch.accidental === '#') {
+    offset = 1;
+    measureAccidentals?.set(key, 1);
+  } else if (pitch.accidental === 'b') {
+    offset = -1;
+    measureAccidentals?.set(key, -1);
+  } else if (pitch.accidental === 'n') {
+    offset = 0;
+    measureAccidentals?.set(key, 0);
+  } else if (measureAccidentals?.has(key)) {
+    offset = measureAccidentals.get(key)!;
+  } else {
+    offset = getKeySignatureOffset(keySignature, pitch.step);
+  }
+
+  return (pitch.octave + 1) * 12 + STEP_SEMITONES[pitch.step] + offset;
+}
+
+const MIDI_TO_SHARP_PITCH: { step: PitchStep; accidental?: Accidental }[] = [
+  { step: 'C' },
+  { step: 'C', accidental: '#' },
+  { step: 'D' },
+  { step: 'D', accidental: '#' },
+  { step: 'E' },
+  { step: 'F' },
+  { step: 'F', accidental: '#' },
+  { step: 'G' },
+  { step: 'G', accidental: '#' },
+  { step: 'A' },
+  { step: 'A', accidental: '#' },
+  { step: 'B' },
+];
+
+const MIDI_TO_FLAT_PITCH: { step: PitchStep; accidental?: Accidental }[] = [
+  { step: 'C' },
+  { step: 'D', accidental: 'b' },
+  { step: 'D' },
+  { step: 'E', accidental: 'b' },
+  { step: 'E' },
+  { step: 'F' },
+  { step: 'G', accidental: 'b' },
+  { step: 'G' },
+  { step: 'A', accidental: 'b' },
+  { step: 'A' },
+  { step: 'B', accidental: 'b' },
+  { step: 'B' },
+];
+
+/**
+ * Convert a MIDI note number (0..127) to a Pitch.
+ */
+export function midiToPitch(midi: number, preferFlats = false): Pitch {
+  const clamped = Math.max(0, Math.min(127, Math.round(midi)));
+  const octave = Math.floor(clamped / 12) - 1;
+  const pc = ((clamped % 12) + 12) % 12;
+  const table = preferFlats ? MIDI_TO_FLAT_PITCH : MIDI_TO_SHARP_PITCH;
+  const entry = table[pc];
+  return entry.accidental
+    ? { step: entry.step, octave, accidental: entry.accidental }
+    : { step: entry.step, octave };
+}
+
+export function midiToFrequency(midi: number): number {
+  return 440 * Math.pow(2, (midi - 69) / 12);
+}
+
+export const DYNAMIC_TO_VELOCITY: Record<DynamicMark, number> = {
+  pp: 0.24,
+  p: 0.38,
+  mp: 0.52,
+  mf: 0.66,
+  f: 0.82,
+  ff: 0.96,
+};

@@ -14,6 +14,8 @@ export const StaffVoiceBar: React.FC = () => {
   const removeStaff = useScoreStore((s) => s.removeStaff);
   const addVoice = useScoreStore((s) => s.addVoice);
   const removeVoice = useScoreStore((s) => s.removeVoice);
+  const toggleVoiceMute = useScoreStore((s) => s.toggleVoiceMute);
+  const toggleVoiceSolo = useScoreStore((s) => s.toggleVoiceSolo);
 
   const activeStaff = staves[activeStaffIndex] ?? staves[0];
   if (!activeStaff) return null;
@@ -119,7 +121,9 @@ export const StaffVoiceBar: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => setActiveVoice(vIdx)}
-                  className="px-2.5 py-1 inline-flex items-center gap-1.5"
+                  className={`px-2 py-1 inline-flex items-center gap-1.5 ${
+                    voice.muted ? 'opacity-60 line-through' : ''
+                  }`}
                   title={`${label} 声部に切替 (Alt+${vIdx + 1})`}
                 >
                   <span
@@ -129,6 +133,36 @@ export const StaffVoiceBar: React.FC = () => {
                     }}
                   />
                   <span>{label}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleVoiceMute(activeStaffIndex, vIdx)}
+                  className={`px-1 py-0.5 text-[10px] font-bold rounded transition-colors ${
+                    voice.muted
+                      ? 'bg-rose-500 text-white'
+                      : isActive
+                        ? 'text-white/75 hover:bg-white/15 hover:text-white'
+                        : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title={`${label} をミュート`}
+                  aria-label={`${label} ミュート`}
+                >
+                  M
+                </button>
+                <button
+                  type="button"
+                  onClick={() => toggleVoiceSolo(activeStaffIndex, vIdx)}
+                  className={`px-1 py-0.5 text-[10px] font-bold rounded transition-colors mr-0.5 ${
+                    voice.solo
+                      ? 'bg-amber-400 text-slate-950'
+                      : isActive
+                        ? 'text-white/75 hover:bg-white/15 hover:text-white'
+                        : 'text-slate-400 hover:bg-slate-100 hover:text-slate-700'
+                  }`}
+                  title={`${label} をソロ再生`}
+                  aria-label={`${label} ソロ`}
+                >
+                  S
                 </button>
                 {activeStaff.voices.length > 1 && (
                   <button

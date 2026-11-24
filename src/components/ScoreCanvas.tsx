@@ -51,6 +51,7 @@ export const ScoreCanvas: React.FC = () => {
   const selectedNotes = useScoreStore((s) => s.selectedNotes);
   const selectedMeasureRange = useScoreStore((s) => s.selectedMeasureRange);
   const zoom = useScoreStore((s) => s.zoom);
+  const playhead = useScoreStore((s) => s.playhead);
 
   const placeNote = useScoreStore((s) => s.placeNote);
   const deleteNoteAt = useScoreStore((s) => s.deleteNoteAt);
@@ -463,6 +464,20 @@ export const ScoreCanvas: React.FC = () => {
     return list;
   }, [layout, selectedNoteIds]);
 
+  // Compute playhead vertical line geometry across all staves of the active playback measure
+  const playheadGeom = useMemo(() => {
+    if (!playhead || !layout) return null;
+    const ms = layout.measures.filter((m) => m.measureIndex === playhead.measureIndex);
+    if (ms.length === 0) return null;
+    const measureTicks = getMeasureTicks(score.timeSignature);
+    const ratio = Math.max(0, Math.min(1, playhead.tickInMeasure / Math.max(1, measureTicks)));
+    const first = ms[0];
+    const x = first.noteStartX + ratio * Math.max(1, first.noteEndX - first.noteStartX);
+    const topY = Math.min(...ms.map((m) => m.topLineY)) - 14;
+    const bottomY = Math.max(...ms.map((m) => m.bottomLineY)) + 14;
+    return { x, topY, bottomY };
+  }, [playhead, layout, score.timeSignature]);
+
   const activeVoice = score.staves[activeStaffIndex]?.voices[activeVoiceIndex];
   const activeVoiceColor = activeVoice?.color ?? '#2563eb';
   const activeVoiceLabel = VOICE_LABELS[activeVoiceIndex] ?? `${activeVoiceIndex + 1}th`;
@@ -656,6 +671,26 @@ export const ScoreCanvas: React.FC = () => {
                       strokeDasharray="4 2"
                     />
                   )}
+
+                  {/* Playback playhead cursor */}
+                  {playheadGeom && (
+                    <g>
+                      <polygon
+                        points={`${playheadGeom.x - 5},${playheadGeom.topY - 6} ${playheadGeom.x + 5},${playheadGeom.topY - 6} ${playheadGeom.x},${playheadGeom.topY + 1}`}
+                        fill="#ef4444"
+                      />
+                      <line
+                        x1={playheadGeom.x}
+                        x2={playheadGeom.x}
+                        y1={playheadGeom.topY}
+                        y2={playheadGeom.bottomY}
+                        stroke="#ef4444"
+                        strokeWidth={2}
+                        strokeLinecap="round"
+                        opacity={0.9}
+                      />
+                    </g>
+                  )}
                 </svg>
               )}
 
@@ -738,12 +773,12 @@ export const ScoreCanvas: React.FC = () => {
           )}
         </div>
         <div className="hidden lg:flex items-center gap-3 text-slate-400">
+          <span>`Space`: 再生</span>
           <span>`1`–`5`: 音価</span>
           <span>`Alt+1`–`4`: 声部</span>
           <span>`V`: 入力/選択</span>
           <span>`L`: タイ</span>
           <span>`Ctrl+C/V`: コピペ</span>
-          <span>`Shift+クリック`: 和音</span>
         </div>
       </div>
     </div>

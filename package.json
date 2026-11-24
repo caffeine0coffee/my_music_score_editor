@@ -11,10 +11,13 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@tonejs/midi": "^2.0.28",
     "immer": "^11.2.10",
+    "jspdf": "^4.2.1",
     "lucide-react": "^1.77.0",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
+    "svg2pdf.js": "^2.9.0",
     "vexflow": "^5.6.1",
     "zustand": "^5.1.0"
   },

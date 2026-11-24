@@ -20,10 +20,10 @@
 - [x] タイ（小節またぎ含む）、スラー、強弱記号、反復記号、ヘッダー（曲名・作曲者）編集
 - [x] モバイル向け下部ドックツールバー・音高上下微調整ボタン・ピンチズーム対応
 
-### Milestone 3: プレビュー再生・MIDI入出力・PDF/SVG/PNG出力 — ⬜ 未着手
-- [ ] Web Audio API による軽量ピアノ風シンセ再生＋プレイヘッド表示＋声部ミュート/ソロ
-- [ ] `@tonejs/midi` を使ったMIDIインポート（確認ダイアログ付き）＆MIDIエクスポート
-- [ ] A4自動組版レンダラー＋`jsPDF + svg2pdf.js` によるベクターPDF出力、SVG/PNG出力（黒一色／カラー切替）
+### Milestone 3: プレビュー再生・MIDI入出力・PDF/SVG/PNG出力 — ✅ 完了
+- [x] Web Audio API による軽量ピアノ風シンセ再生＋プレイヘッド表示＋声部ミュート/ソロ
+- [x] `@tonejs/midi` を使ったMIDIインポート（確認ダイアログ付き）＆MIDIエクスポート
+- [x] A4自動組版レンダラー＋`jsPDF + svg2pdf.js` によるベクターPDF出力、SVG/PNG出力（黒一色／カラー切替）
 
 ### Milestone 4: Supabase認証・クラウド同期・Cloudflare Pagesデプロイ — ⬜ 未着手
 - [ ] Supabaseプロジェクト連携（Google OAuthログイン、PostgreSQLスキーマ・RLS設定）
@@ -40,3 +40,4 @@
 | 2026-11-21 | Milestone 1 実装完了（基盤構築・Tickコア・自動休符・VexFlowレンダラー・基本UI・単体テスト19件） |
 | 2026-11-23 | Tailscale 経由のローカル開発アクセス対応（`vite.config.ts`）、開発運用ルール（`GEMINI.md` / `progress.md`）整備 |
 | 2026-11-23 | Milestone 2 実装完了（複数五線・複数声部の色分け＆半透明描画、小節/音符範囲選択・コピペ・別声部ワンタップ複製、タイ/スラー/強弱/反復/ヘッダー編集、モバイル下部ドック＆ピンチズーム、単体テスト26件） |
+| 2026-11-24 | Milestone 3 実装完了（Web Audio ピアノ風シンセ再生・プレイヘッド・声部ミュート/ソロ、`@tonejs/midi` によるMIDIインポート確認ダイアログ＆エクスポート、A4自動組版レンダラー＆jsPDF/svg2pdf.jsによるベクターPDF/SVG/PNG出力、単体テスト31件） |

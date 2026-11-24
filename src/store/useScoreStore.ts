@@ -33,6 +33,7 @@ import {
 import { computeDurationSpec, getMeasureTicks } from '../core/rhythm';
 import { createInitialScore, createStaff, createVoice, generateId } from '../core/scoreFactory';
 import { localScoreRepository } from '../repository/LocalStorageScoreRepository';
+import { pianoPlayer, type PlayheadPosition } from '../audio/pianoPlayer';
 
 export interface SelectedNoteRef {
   staffIndex: number;
@@ -83,6 +84,10 @@ interface ScoreStoreState {
 
   zoom: number;
 
+  // Playback state (transient, not in undo history)
+  isPlaying: boolean;
+  playhead: PlayheadPosition | null;
+
   // Navigation / mode actions
   setActiveStaff: (staffIndex: number) => void;
   setActiveVoice: (voiceIndex: number) => void;
@@ -115,6 +120,14 @@ interface ScoreStoreState {
   setStaffName: (staffIndex: number, name: string) => void;
   addVoice: (staffIndex?: number) => void;
   removeVoice: (staffIndex: number, voiceIndex: number) => void;
+  toggleVoiceMute: (staffIndex: number, voiceIndex: number) => void;
+  toggleVoiceSolo: (staffIndex: number, voiceIndex: number) => void;
+
+  // Playback & Import
+  startPlayback: (fromSelection?: boolean) => void;
+  stopPlayback: () => void;
+  togglePlayback: () => void;
+  replaceScore: (nextScore: Score) => void;
 
   // Score editing actions (all undoable)
   placeNote: (
@@ -226,6 +239,9 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
     clipboard: null,
 
     zoom: 1,
+
+    isPlaying: false,
+    playhead: null,
 
     setActiveStaff: (staffIndex) => {
       const state = get();
@@ -713,6 +729,77 @@ export const useScoreStore = create<ScoreStoreState>((set, get) => {
           selectedMeasureRange: null,
         },
       );
+    },
+
+    toggleVoiceMute: (staffIndex, voiceIndex) => {
+      commit((draft) => {
+        const voice = draft.staves[staffIndex]?.voices[voiceIndex];
+        if (!voice) return;
+        voice.muted = !voice.muted;
+        if (voice.muted) {
+          voice.solo = false;
+        }
+      });
+    },
+
+    toggleVoiceSolo: (staffIndex, voiceIndex) => {
+      commit((draft) => {
+        const voice = draft.staves[staffIndex]?.voices[voiceIndex];
+        if (!voice) return;
+        voice.solo = !voice.solo;
+        if (voice.solo) {
+          voice.muted = false;
+        }
+      });
+    },
+
+    startPlayback: (fromSelection = false) => {
+      const state = get();
+      const startMeasure = fromSelection
+        ? (state.selectedMeasureRange?.startMeasure ?? state.selectedNote?.measureIndex ?? 0)
+        : 0;
+      pianoPlayer.play(
+        state.score,
+        {
+          onPlayheadChange: (pos) => set({ playhead: pos }),
+          onStateChange: (playing) => set({ isPlaying: playing }),
+        },
+        startMeasure,
+      );
+    },
+
+    stopPlayback: () => {
+      pianoPlayer.stop();
+      set({ isPlaying: false, playhead: null });
+    },
+
+    togglePlayback: () => {
+      const state = get();
+      if (state.isPlaying) {
+        state.stopPlayback();
+      } else {
+        state.startPlayback(false);
+      }
+    },
+
+    replaceScore: (nextScore) => {
+      const state = get();
+      if (state.isPlaying) {
+        pianoPlayer.stop();
+      }
+      set({
+        score: nextScore,
+        past: pushHistory(state.past, state.score),
+        future: [],
+        activeStaffIndex: 0,
+        activeVoiceIndex: 0,
+        selectedNote: null,
+        selectedNotes: [],
+        selectedMeasureRange: null,
+        isPlaying: false,
+        playhead: null,
+      });
+      persistScore(nextScore);
     },
 
     placeNote: (measureIndex, startTick, pitch, forceChordMode, targetStaffIndex) => {
